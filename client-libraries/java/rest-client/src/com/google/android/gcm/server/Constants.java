@@ -167,6 +167,11 @@ public final class Constants {
   public static final String JSON_REGISTRATION_IDS = "registration_ids";
 
   /**
+   * JSON-only field representing the to recipient.
+   */
+  public static final String JSON_TO = "to";
+
+  /**
    * JSON-only field representing the payload data.
    */
   public static final String JSON_PAYLOAD = "data";
