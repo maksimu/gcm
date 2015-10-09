@@ -48,6 +48,7 @@ public final class Result implements Serializable {
   private final String messageId;
   private final String canonicalRegistrationId;
   private final String errorCode;
+  private final GroupResult groupResult;
 
   public static final class Builder {
 
@@ -55,6 +56,7 @@ public final class Result implements Serializable {
     private String messageId;
     private String canonicalRegistrationId;
     private String errorCode;
+    private GroupResult groupResult;
 
     public Builder canonicalRegistrationId(String value) {
       canonicalRegistrationId = value;
@@ -71,6 +73,11 @@ public final class Result implements Serializable {
       return this;
     }
 
+    public Builder groupResult(GroupResult value) {
+      groupResult = value;
+      return this;
+    }
+
     public Result build() {
       return new Result(this);
     }
@@ -80,6 +87,7 @@ public final class Result implements Serializable {
     canonicalRegistrationId = builder.canonicalRegistrationId;
     messageId = builder.messageId;
     errorCode = builder.errorCode;
+    groupResult = builder.groupResult;
   }
 
   /**
@@ -103,6 +111,13 @@ public final class Result implements Serializable {
     return errorCode;
   }
 
+  /**
+   * Gets the group result, if any.
+   */
+  public GroupResult getGroupResult() {
+    return groupResult;
+  }
+
   @Override
   public String toString() {
     StringBuilder builder = new StringBuilder("[");
@@ -115,6 +130,9 @@ public final class Result implements Serializable {
     }
     if (errorCode != null) { 
       builder.append(" errorCode=").append(errorCode);
+    }
+    if (groupResult != null) {
+      builder.append(" groupResult=").append(groupResult);
     }
     return builder.append(" ]").toString();
   }

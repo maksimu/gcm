@@ -27,6 +27,16 @@ public final class Constants {
       "https://android.googleapis.com/gcm/send";
 
   /**
+   * Parameter for to field.
+   */
+  public static final String PARAM_TO = "to";
+
+  /**
+   * Prefix of the topic.
+   */
+  public static final String TOPIC_PREFIX = "/topic/";
+
+  /**
    * HTTP parameter for registration id.
    */
   public static final String PARAM_REGISTRATION_ID = "registration_id";

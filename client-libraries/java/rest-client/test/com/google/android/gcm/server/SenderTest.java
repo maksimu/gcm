@@ -207,6 +207,22 @@ public class SenderTest {
   }
 
   @Test
+  public void testSendNoRetry_group_ok() throws Exception {
+    String json = replaceQuotes("\n"
+        + "{"
+        + "'success': 3,"
+        + "'failure': 0"
+        + "}");
+    setResponseExpectations(200, json);
+    Result result = sender.sendNoRetry(message, regId);
+    assertNotNull(result);
+    assertNotNull(result.getGroupResult());
+    assertEquals(3, result.getGroupResult().getSuccess());
+    assertEquals(0, result.getGroupResult().getFailure());
+    assertNull(result.getGroupResult().getFailedRegistrationIds());
+  }
+
+  @Test
   public void testSendNoRetry_ok_canonical() throws Exception {
     String json = replaceQuotes("\n"
         + "{"
@@ -281,6 +297,25 @@ public class SenderTest {
   }
 
   @Test
+  public void testSendNoRetry_group_error() throws Exception {
+    String json = replaceQuotes("\n"
+        + "{"
+        + "'success': 3,"
+        + "'failure': 2,"
+        + "'failed_registration_ids': ["
+        + " 'reg_id1', 'reg_id2'"
+        + " ]"
+        + "}");
+    setResponseExpectations(200, json);
+    Result result = sender.sendNoRetry(message, regId);
+    assertNotNull(result);
+    assertNotNull(result.getGroupResult());
+    assertEquals(3, result.getGroupResult().getSuccess());
+    assertEquals(2, result.getGroupResult().getFailure());
+    assertEquals(2, result.getGroupResult().getFailedRegistrationIds().length);
+  }
+
+  @Test
   public void testSendNoRetry_resultsCount() throws Exception {
     String json = replaceQuotes("\n"
         + "{"
@@ -298,15 +333,11 @@ public class SenderTest {
     assertNull(result);
   }
 
-  @Test
+  @Test(expected = IOException.class)
   public void testSendNoRetry_emptyResult() throws Exception {
     String json = "{}";
     setResponseExpectations(200, json);
-    Result result = sender.sendNoRetry(message, topic);
-    assertNotNull(result);
-    assertNull(result.getMessageId());
-    assertNull(result.getErrorCodeName());
-    assertNull(result.getCanonicalRegistrationId());
+    sender.sendNoRetry(message, topic);
   }
 
   @Test

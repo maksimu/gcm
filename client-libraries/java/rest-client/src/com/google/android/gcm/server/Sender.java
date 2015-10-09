@@ -46,6 +46,7 @@ import static com.google.android.gcm.server.Constants.PARAM_PRIORITY;
 import static com.google.android.gcm.server.Constants.PARAM_RESTRICTED_PACKAGE_NAME;
 import static com.google.android.gcm.server.Constants.PARAM_TIME_TO_LIVE;
 import static com.google.android.gcm.server.Constants.TOKEN_CANONICAL_REG_ID;
+import static com.google.android.gcm.server.Constants.TOPIC_PREFIX;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -66,7 +67,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -110,16 +110,16 @@ public class Sender {
    * for many seconds.
    *
    * @param message message to be sent, including the device's registration id.
-   * @param registrationId device where the message will be sent.
+   * @param to device or topic where the message will be sent.
    * @param retries number of retries in case of service unavailability errors.
    *
    * @return result of the request (see its javadoc for more details).
    *
-   * @throws IllegalArgumentException if registrationId is {@literal null}.
+   * @throws IllegalArgumentException if to is {@literal null}.
    * @throws InvalidRequestException if GCM didn't returned a 200 or 5xx status.
    * @throws IOException if message could not be sent.
    */
-  public Result send(Message message, String registrationId, int retries)
+  public Result send(Message message, String to, int retries)
       throws IOException {
     int attempt = 0;
     Result result;
@@ -129,9 +129,9 @@ public class Sender {
       attempt++;
       if (logger.isLoggable(Level.FINE)) {
         logger.fine("Attempt #" + attempt + " to send message " +
-            message + " to regIds " + registrationId);
+            message + " to regIds " + to);
       }
-      result = sendNoRetry(message, registrationId);
+      result = sendNoRetry(message, to);
       tryAgain = result == null && attempt <= retries;
       if (tryAgain) {
         int sleepTime = backoff / 2 + random.nextInt(backoff);
@@ -164,37 +164,10 @@ public class Sender {
     Map<Object, Object> jsonRequest = new HashMap<Object, Object>();
     messageToMap(message, jsonRequest);
     jsonRequest.put(JSON_TO, to);
-    String requestBody = JSONValue.toJSONString(jsonRequest);
-    logger.finest("JSON request: " + requestBody);
-    HttpURLConnection conn;
-    int status;
-    try {
-      conn = post(GCM_SEND_ENDPOINT, "application/json", requestBody);
-      status = conn.getResponseCode();
-    } catch (IOException e) {
-      logger.log(Level.FINE, "IOException posting to GCM", e);
+    String responseBody = makeGcmHttpRequest(jsonRequest);
+    if (responseBody == null) {
       return null;
     }
-    String responseBody;
-    if (status != 200) {
-      try {
-        responseBody = getAndClose(conn.getErrorStream());
-        logger.finest("JSON error response: " + responseBody);
-      } catch (IOException e) {
-        // ignore the exception since it will thrown an InvalidRequestException
-        // anyways
-        responseBody = "N/A";
-        logger.log(Level.FINE, "Exception reading response: ", e);
-      }
-      throw new InvalidRequestException(status, responseBody);
-    }
-    try {
-      responseBody = getAndClose(conn.getInputStream());
-    } catch(IOException e) {
-      logger.log(Level.WARNING, "IOException reading response", e);
-      return null;
-    }
-    logger.finest("JSON response: " + responseBody);
     JSONParser parser = new JSONParser();
     JSONObject jsonResponse;
     try {
@@ -216,13 +189,30 @@ public class Sender {
                   " results, expected one");
           return null;
         }
-      } else if (jsonResponse.containsKey("message_id")) {
-        // Handle response from topic message.
-        Long messageId = (Long) jsonResponse.get("message_id");
+      } else if (to.startsWith(TOPIC_PREFIX) && jsonResponse.containsKey(JSON_MESSAGE_ID)) {
+        // message_id is expected when this is the response from a topic message.
+        Long messageId = (Long) jsonResponse.get(JSON_MESSAGE_ID);
         resultBuilder.messageId(messageId.toString());
-      } else if (jsonResponse.containsKey("error")) {
-        // Handle error from topic message.
-        resultBuilder.errorCode((String) jsonResponse.get("error"));
+      } else if (to.startsWith(TOPIC_PREFIX) && jsonResponse.containsKey(JSON_ERROR)) {
+        String error = (String) jsonResponse.get(JSON_ERROR);
+        return new Result.Builder().errorCode(error).build();
+      } else if (jsonResponse.containsKey(JSON_SUCCESS) && jsonResponse.containsKey(JSON_FAILURE)) {
+        // success and failure are expected when response is from group message.
+        long success = (Long) jsonResponse.get(JSON_SUCCESS);
+        long failure = (Long) jsonResponse.get(JSON_FAILURE);
+        String[] failedIds = null;
+        if (jsonResponse.containsKey("failed_registration_ids")) {
+          JSONArray jFailedIds = (JSONArray) jsonResponse.get("failed_registration_ids");
+          failedIds = new String[jFailedIds.size()];
+          for (int i = 0; i < jFailedIds.size(); i++) {
+            failedIds[i] = (String) jFailedIds.get(i);
+          }
+        }
+        GroupResult groupResult = new GroupResult(success, failure, failedIds);
+        resultBuilder.groupResult(groupResult);
+      } else {
+        logger.warning("Empty GCM response: " + responseBody);
+        throw newIoException(responseBody, new Exception("Empty GCM response."));
       }
       return resultBuilder.build();
     } catch (ParseException e) {
@@ -375,37 +365,10 @@ public class Sender {
     Map<Object, Object> jsonRequest = new HashMap<Object, Object>();
     messageToMap(message, jsonRequest);
     jsonRequest.put(JSON_REGISTRATION_IDS, registrationIds);
-    String requestBody = JSONValue.toJSONString(jsonRequest);
-    logger.finest("JSON request: " + requestBody);
-    HttpURLConnection conn;
-    int status;
-    try {
-      conn = post(GCM_SEND_ENDPOINT, "application/json", requestBody);
-      status = conn.getResponseCode();
-    } catch (IOException e) {
-      logger.log(Level.FINE, "IOException posting to GCM", e);
+    String responseBody = makeGcmHttpRequest(jsonRequest);
+    if (responseBody == null) {
       return null;
     }
-    String responseBody;
-    if (status != 200) {
-      try {
-        responseBody = getAndClose(conn.getErrorStream());
-        logger.finest("JSON error response: " + responseBody);
-      } catch (IOException e) {
-        // ignore the exception since it will thrown an InvalidRequestException
-        // anyways
-        responseBody = "N/A";
-        logger.log(Level.FINE, "Exception reading response: ", e);
-      }
-      throw new InvalidRequestException(status, responseBody);
-    }
-    try {
-      responseBody = getAndClose(conn.getInputStream());
-    } catch(IOException e) {
-      logger.log(Level.WARNING, "IOException reading response", e);
-      return null;
-    }
-    logger.finest("JSON response: " + responseBody);
     JSONParser parser = new JSONParser();
     JSONObject jsonResponse;
     try {
@@ -439,6 +402,41 @@ public class Sender {
     } catch (CustomParserException e) {
       throw newIoException(responseBody, e);
     }
+  }
+
+  private String makeGcmHttpRequest(Map<Object, Object> jsonRequest) throws InvalidRequestException {
+    String requestBody = JSONValue.toJSONString(jsonRequest);
+    logger.finest("JSON request: " + requestBody);
+    HttpURLConnection conn;
+    int status;
+    try {
+      conn = post(GCM_SEND_ENDPOINT, "application/json", requestBody);
+      status = conn.getResponseCode();
+    } catch (IOException e) {
+      logger.log(Level.FINE, "IOException posting to GCM", e);
+      return null;
+    }
+    String responseBody;
+    if (status != 200) {
+      try {
+        responseBody = getAndClose(conn.getErrorStream());
+        logger.finest("JSON error response: " + responseBody);
+      } catch (IOException e) {
+        // ignore the exception since it will thrown an InvalidRequestException
+        // anyways
+        responseBody = "N/A";
+        logger.log(Level.FINE, "Exception reading response: ", e);
+      }
+      throw new InvalidRequestException(status, responseBody);
+    }
+    try {
+      responseBody = getAndClose(conn.getInputStream());
+    } catch(IOException e) {
+      logger.log(Level.WARNING, "IOException reading response", e);
+      return null;
+    }
+    logger.finest("JSON response: " + responseBody);
+    return responseBody;
   }
 
   /**
