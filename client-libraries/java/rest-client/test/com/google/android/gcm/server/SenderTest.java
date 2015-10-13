@@ -216,10 +216,9 @@ public class SenderTest {
     setResponseExpectations(200, json);
     Result result = sender.sendNoRetry(message, regId);
     assertNotNull(result);
-    assertNotNull(result.getGroupResult());
-    assertEquals(3, result.getGroupResult().getSuccess());
-    assertEquals(0, result.getGroupResult().getFailure());
-    assertNull(result.getGroupResult().getFailedRegistrationIds());
+    assertEquals(3, result.getSuccess().intValue());
+    assertEquals(0, result.getFailure().intValue());
+    assertNull(result.getFailedRegistrationIds());
   }
 
   @Test
@@ -309,10 +308,9 @@ public class SenderTest {
     setResponseExpectations(200, json);
     Result result = sender.sendNoRetry(message, regId);
     assertNotNull(result);
-    assertNotNull(result.getGroupResult());
-    assertEquals(3, result.getGroupResult().getSuccess());
-    assertEquals(2, result.getGroupResult().getFailure());
-    assertEquals(2, result.getGroupResult().getFailedRegistrationIds().length);
+    assertEquals(3, result.getSuccess().intValue());
+    assertEquals(2, result.getFailure().intValue());
+    assertEquals(2, result.getFailedRegistrationIds().size());
   }
 
   @Test

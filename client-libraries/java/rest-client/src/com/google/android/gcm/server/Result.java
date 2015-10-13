@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Google Inc.
+ * Copyright 2015 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,6 +16,7 @@
 package com.google.android.gcm.server;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * Result of a GCM message request that returned HTTP status code 200.
@@ -48,7 +49,9 @@ public final class Result implements Serializable {
   private final String messageId;
   private final String canonicalRegistrationId;
   private final String errorCode;
-  private final GroupResult groupResult;
+  private final Integer success;
+  private final Integer failure;
+  private final List<String> failedRegistrationIds;
 
   public static final class Builder {
 
@@ -56,7 +59,9 @@ public final class Result implements Serializable {
     private String messageId;
     private String canonicalRegistrationId;
     private String errorCode;
-    private GroupResult groupResult;
+    private Integer success;
+    private Integer failure;
+    private List<String> failedRegistrationIds;
 
     public Builder canonicalRegistrationId(String value) {
       canonicalRegistrationId = value;
@@ -73,8 +78,18 @@ public final class Result implements Serializable {
       return this;
     }
 
-    public Builder groupResult(GroupResult value) {
-      groupResult = value;
+    public Builder success(Integer value) {
+      success = value;
+      return this;
+    }
+
+    public Builder failure(Integer value) {
+      failure = value;
+      return this;
+    }
+
+    public Builder failedRegistrationIds(List<String> value) {
+      failedRegistrationIds = value;
       return this;
     }
 
@@ -87,7 +102,9 @@ public final class Result implements Serializable {
     canonicalRegistrationId = builder.canonicalRegistrationId;
     messageId = builder.messageId;
     errorCode = builder.errorCode;
-    groupResult = builder.groupResult;
+    success = builder.success;
+    failure = builder.failure;
+    failedRegistrationIds = builder.failedRegistrationIds;
   }
 
   /**
@@ -111,11 +128,16 @@ public final class Result implements Serializable {
     return errorCode;
   }
 
-  /**
-   * Gets the group result, if any.
-   */
-  public GroupResult getGroupResult() {
-    return groupResult;
+  public Integer getSuccess() {
+    return success;
+  }
+
+  public Integer getFailure() {
+    return failure;
+  }
+
+  public List<String> getFailedRegistrationIds() {
+    return failedRegistrationIds;
   }
 
   @Override
@@ -131,8 +153,14 @@ public final class Result implements Serializable {
     if (errorCode != null) { 
       builder.append(" errorCode=").append(errorCode);
     }
-    if (groupResult != null) {
-      builder.append(" groupResult=").append(groupResult);
+    if (success != null) {
+      builder.append(" grpupSuccess=").append(success);
+    }
+    if (failure != null) {
+      builder.append(" groupFailure=").append(failure);
+    }
+    if (failedRegistrationIds != null) {
+      builder.append(" failedRegistrationIds=").append(failedRegistrationIds);
     }
     return builder.append(" ]").toString();
   }

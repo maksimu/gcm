@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Google Inc.
+ * Copyright 2015 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -110,7 +110,7 @@ public class Sender {
    * for many seconds.
    *
    * @param message message to be sent, including the device's registration id.
-   * @param to device or topic where the message will be sent.
+   * @param to registration token, notification key, or topic where the message will be sent.
    * @param retries number of retries in case of service unavailability errors.
    *
    * @return result of the request (see its javadoc for more details).
@@ -195,21 +195,21 @@ public class Sender {
         resultBuilder.messageId(messageId.toString());
       } else if (to.startsWith(TOPIC_PREFIX) && jsonResponse.containsKey(JSON_ERROR)) {
         String error = (String) jsonResponse.get(JSON_ERROR);
-        return new Result.Builder().errorCode(error).build();
+        resultBuilder.errorCode(error);
       } else if (jsonResponse.containsKey(JSON_SUCCESS) && jsonResponse.containsKey(JSON_FAILURE)) {
         // success and failure are expected when response is from group message.
-        long success = (Long) jsonResponse.get(JSON_SUCCESS);
-        long failure = (Long) jsonResponse.get(JSON_FAILURE);
-        String[] failedIds = null;
+        int success = getNumber(jsonResponse, JSON_SUCCESS).intValue();
+        int failure = getNumber(jsonResponse, JSON_FAILURE).intValue();
+        List<String> failedIds = null;
         if (jsonResponse.containsKey("failed_registration_ids")) {
           JSONArray jFailedIds = (JSONArray) jsonResponse.get("failed_registration_ids");
-          failedIds = new String[jFailedIds.size()];
+          failedIds = new ArrayList<String>();
           for (int i = 0; i < jFailedIds.size(); i++) {
-            failedIds[i] = (String) jFailedIds.get(i);
+            failedIds.add((String) jFailedIds.get(i));
           }
         }
-        GroupResult groupResult = new GroupResult(success, failure, failedIds);
-        resultBuilder.groupResult(groupResult);
+        resultBuilder.success(success).failure(failure)
+            .failedRegistrationIds(failedIds);
       } else {
         logger.warning("Empty GCM response: " + responseBody);
         throw newIoException(responseBody, new Exception("Empty GCM response."));

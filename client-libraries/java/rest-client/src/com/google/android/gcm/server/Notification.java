@@ -16,7 +16,8 @@
 package com.google.android.gcm.server;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * GCM message notification part.
