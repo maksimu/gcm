@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Google Inc.
+ * Copyright Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -186,16 +186,22 @@ public class Sender {
                   .errorCode(error);
         } else {
           logger.log(Level.WARNING, "Found null or " + jsonResults.size() +
-                  " results, expected one");
+              " results, expected one");
           return null;
         }
-      } else if (to.startsWith(TOPIC_PREFIX) && jsonResponse.containsKey(JSON_MESSAGE_ID)) {
-        // message_id is expected when this is the response from a topic message.
-        Long messageId = (Long) jsonResponse.get(JSON_MESSAGE_ID);
-        resultBuilder.messageId(messageId.toString());
-      } else if (to.startsWith(TOPIC_PREFIX) && jsonResponse.containsKey(JSON_ERROR)) {
-        String error = (String) jsonResponse.get(JSON_ERROR);
-        resultBuilder.errorCode(error);
+      } else if (to.startsWith(TOPIC_PREFIX)) {
+        if (jsonResponse.containsKey(JSON_MESSAGE_ID)) {
+          // message_id is expected when this is the response from a topic message.
+          Long messageId = (Long) jsonResponse.get(JSON_MESSAGE_ID);
+          resultBuilder.messageId(messageId.toString());
+        } else if (jsonResponse.containsKey(JSON_ERROR)) {
+          String error = (String) jsonResponse.get(JSON_ERROR);
+          resultBuilder.errorCode(error);
+        } else {
+          logger.log(Level.WARNING, "Expected " + JSON_MESSAGE_ID + " or " + JSON_ERROR +
+              " found: " + responseBody);
+          return null;
+        }
       } else if (jsonResponse.containsKey(JSON_SUCCESS) && jsonResponse.containsKey(JSON_FAILURE)) {
         // success and failure are expected when response is from group message.
         int success = getNumber(jsonResponse, JSON_SUCCESS).intValue();
@@ -211,8 +217,8 @@ public class Sender {
         resultBuilder.success(success).failure(failure)
             .failedRegistrationIds(failedIds);
       } else {
-        logger.warning("Empty GCM response: " + responseBody);
-        throw newIoException(responseBody, new Exception("Empty GCM response."));
+        logger.warning("Unrecognized response: " + responseBody);
+        throw newIoException(responseBody, new Exception("Unrecognized response."));
       }
       return resultBuilder.build();
     } catch (ParseException e) {

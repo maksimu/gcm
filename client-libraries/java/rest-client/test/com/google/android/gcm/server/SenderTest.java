@@ -56,7 +56,7 @@ import java.util.Map;
 public class SenderTest {
 
   private final String regId = "15;16";
-  private final String topic = "/topic/group";
+  private final String topic = "/topics/group";
   private final String collapseKey = "collapseKey";
   private final boolean delayWhileIdle = true;
   private final boolean dryRun = true;
@@ -331,11 +331,12 @@ public class SenderTest {
     assertNull(result);
   }
 
-  @Test(expected = IOException.class)
+  @Test
   public void testSendNoRetry_emptyResult() throws Exception {
     String json = "{}";
     setResponseExpectations(200, json);
-    sender.sendNoRetry(message, topic);
+    Result result = sender.sendNoRetry(message, topic);
+    assertNull(result);
   }
 
   @Test
